@@ -1,0 +1,25 @@
+{
+  "server_address": ":8080",
+  "database_url": "your_database_url",
+  "jwt_secret": "your_jwt_secret",
+  "services": [
+    {
+      "name": "repocate",
+      "type": "builtin",
+      "url": "http://localhost:8081"
+    },
+    {
+      "name": "minio",
+      "type": "builtin",
+      "url": "http://localhost:9000"
+    },
+    {
+      "name": "custom_service",
+      "type": "plugin",
+      "url": "http://localhost:8082",
+      "options": {
+        "path": "./plugins/custom_service.so"
+      }
+    }
+  ]
+}
