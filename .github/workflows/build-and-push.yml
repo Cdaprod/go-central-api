@@ -1,4 +1,4 @@
-name: Build, Optimize, and Push
+I'm name: Build, Optimize, and Push
 
 on:
   push:
@@ -22,6 +22,17 @@ jobs:
 
     - name: Install golangci-lint
       run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.53.3
+
+    - name: Tidy go.mod
+      run: |
+        go mod tidy
+        if [ -n "$(git status --porcelain)" ]; then
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add go.mod go.sum
+          git commit -m "Auto-fix: go mod tidy"
+          git push
+        fi
 
     - name: Run goimports
       run: |
@@ -67,4 +78,4 @@ jobs:
         context: .
         push: true
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/go-central-api:latest
-        platforms: linux/amd64,linux/arm64
+        platforms:​ linux/amd64,linux/arm64
