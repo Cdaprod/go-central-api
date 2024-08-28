@@ -3,10 +3,11 @@ package registry
 import (
 	"fmt"
 	"plugin"
-	"reflect"
 	"sync"
 
 	"github.com/Cdaprod/go-central-api/config"
+	"github.com/Cdaprod/go-central-api/integrations/repocate"
+	"github.com/Cdaprod/go-central-api/integrations/minio"
 )
 
 type API interface {
@@ -48,75 +49,58 @@ func (r *APIRegistry) List() []string {
 	return names
 }
 
-func (r *APIRegistry) LoadServices(cfg *config.Config) error {
-	for _, svc := range cfg.Services {
-		switch svc.Type {
-		case "builtin":
-			if err := r.loadBuiltinService(svc); err != nil {
-				return err
-			}
-		case "plugin":
-			if err := r.loadPluginService(svc); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("unknown service type: %s", svc.Type)
-		}
+func LoadService(r *APIRegistry, svc config.ServiceConfig) error {
+	switch svc.Type {
+	case "plugin":
+		return loadPluginService(r, svc)
+	case "builtin":
+		return loadBuiltinService(r, svc)
+	default:
+		return fmt.Errorf("unknown service type: %s", svc.Type)
 	}
-	return nil
 }
 
 func (r *APIRegistry) loadBuiltinService(svc config.ServiceConfig) error {
-	apiType, exists := builtinAPIs[svc.Name]
-	if !exists {
-		return fmt.Errorf("builtin service not found: %s", svc.Name)
+	var api API
+	switch svc.Name {
+	case "repocate":
+		api = repocate.NewRepocateAPI(svc.URL)
+	case "minio":
+		api = minio.NewMinioAPI(svc.URL)
+	default:
+		return fmt.Errorf("unknown builtin service: %s", svc.Name)
 	}
-
-	apiInstance := reflect.New(apiType).Interface().(API)
-	r.Register(svc.Name, apiInstance)
+	r.Register(svc.Name, api)
 	return nil
 }
 
-func (r *APIRegistry) loadPluginService(svc config.ServiceConfig) error {
-	p, err := plugin.Open(svc.Options["path"])
-	if err != nil {
-		return fmt.Errorf("failed to open plugin: %v", err)
+func loadPluginService(r *APIRegistry, svc config.ServiceConfig) error {
+	pluginPath := svc.GetPluginPath()
+	if pluginPath == "" {
+		return fmt.Errorf("plugin path not specified for service %s", svc.Name)
 	}
 
-	symAPI, err := p.Lookup("API")
+	p, err := plugin.Open(pluginPath)
 	if err != nil {
-		return fmt.Errorf("failed to find API symbol in plugin: %v", err)
+		return fmt.Errorf("failed to open plugin for service %s: %v", svc.Name, err)
 	}
 
-	api, ok := symAPI.(API)
+	symNewAPI, err := p.Lookup("NewAPI")
+	if err != nil {
+		return fmt.Errorf("failed to find NewAPI symbol in plugin for service %s: %v", svc.Name, err)
+	}
+
+	newAPIFunc, ok := symNewAPI.(func(string) (API, error))
 	if !ok {
-		return fmt.Errorf("invalid API implementation in plugin")
+		return fmt.Errorf("invalid NewAPI function signature in plugin for service %s", svc.Name)
+	}
+
+	api, err := newAPIFunc(svc.URL)
+	if err != nil {
+		return fmt.Errorf("failed to create API instance for service %s: %v", svc.Name, err)
 	}
 
 	r.Register(svc.Name, api)
 	return nil
 }
 
-var builtinAPIs = map[string]reflect.Type{
-	// Register built-in API types here
-	"repocate": reflect.TypeOf((*RepocateAPI)(nil)).Elem(),
-	"minio":    reflect.TypeOf((*MinioAPI)(nil)).Elem(),
-}
-
-// Placeholder types for built-in APIs
-type RepocateAPI struct{}
-type MinioAPI struct{}
-
-func (a *RepocateAPI) GetName() string { return "repocate" }
-func (a *MinioAPI) GetName() string    { return "minio" }
-
-// Implement Handle method for each API type
-func (a *RepocateAPI) Handle(method, path string, payload []byte) ([]byte, error) {
-	// Implement Repocate-specific logic
-	return nil, nil
-}
-
-func (a *MinioAPI) Handle(method, path string, payload []byte) ([]byte, error) {
-	// Implement MinIO-specific logic
-	return nil, nil
-}

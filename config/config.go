@@ -33,3 +33,8 @@ func Load() (*Config, error) {
 
 	return &cfg, nil
 }
+
+// GetPluginPath returns the plugin path for a service if it exists in the Options
+func (sc *ServiceConfig) GetPluginPath() string {
+	return sc.Options["plugin_path"]
+}
