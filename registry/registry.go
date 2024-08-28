@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/Cdaprod/go-central-api/config"
-	"github.com/Cdaprod/go-central-api/integrations/repocate"
 	"github.com/Cdaprod/go-central-api/integrations/minio"
+	"github.com/Cdaprod/go-central-api/integrations/repocate"
 )
 
 type API interface {
@@ -103,4 +103,3 @@ func loadPluginService(r *APIRegistry, svc config.ServiceConfig) error {
 	r.Register(svc.Name, api)
 	return nil
 }
-

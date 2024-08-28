@@ -1,7 +1,6 @@
 package minio
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
